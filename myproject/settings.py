@@ -33,7 +33,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "whatsapp-text-chat-analysis-system-4q8m.onrender.com",
     "django-whatsapp-text-chat-analysis_website.onrender.com",
-    "https://intern-2-deploy.onrender.com/",
+    "https://intern-2-deploy.onrender.com",
 ]
 # ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS")
 # if ALLOWED_HOSTS:
