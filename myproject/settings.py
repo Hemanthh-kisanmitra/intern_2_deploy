@@ -28,17 +28,18 @@ DEBUG = True
 
 # ---------------- Hosts & Security ----------------
 # Default hosts if env not set
-_default_hosts = [
+ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     "whatsapp-text-chat-analysis-system-4q8m.onrender.com",
-    "django-whatsapp-text-chat-analysis_website.onrender.com"
+    "django-whatsapp-text-chat-analysis_website.onrender.com",
+    "https://intern-2-deploy.onrender.com/",
 ]
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS")
-if ALLOWED_HOSTS:
-    ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS.split(",") if h.strip()]
-else:
-    ALLOWED_HOSTS = _default_hosts
+# ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS")
+# if ALLOWED_HOSTS:
+#     ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS.split(",") if h.strip()]
+# else:
+#     ALLOWED_HOSTS = _default_hosts
 
 # CSRF trusted origins (must include scheme https://)
 _default_csrf = ["https://whatsapp-text-chat-analysis-system-4q8m.onrender.com", "https://django-whatsapp-text-chat-analysis-website.onrender.com"]
