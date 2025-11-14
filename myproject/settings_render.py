@@ -17,7 +17,7 @@ except ImportError:
 DEBUG = False
 
 # Allow all hosts - configure properly for production
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["https://intern-2-deploy.onrender.com"]
 
 # Database
 # Use PostgreSQL in production

@@ -30,9 +30,6 @@ DEBUG = True
 # Default hosts if env not set
 ALLOWED_HOSTS = [
     "127.0.0.1",
-    "localhost",
-    "whatsapp-text-chat-analysis-system-4q8m.onrender.com",
-    "django-whatsapp-text-chat-analysis_website.onrender.com",
     "https://intern-2-deploy.onrender.com",
 ]
 # ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS")
@@ -42,12 +39,12 @@ ALLOWED_HOSTS = [
 #     ALLOWED_HOSTS = _default_hosts
 
 # CSRF trusted origins (must include scheme https://)
-_default_csrf = ["https://whatsapp-text-chat-analysis-system-4q8m.onrender.com", "https://django-whatsapp-text-chat-analysis-website.onrender.com"]
-CSRF_TRUSTED_ORIGINS = os.environ.get("CSRF_TRUSTED_ORIGINS")
-if CSRF_TRUSTED_ORIGINS:
-    CSRF_TRUSTED_ORIGINS = [u.strip() for u in CSRF_TRUSTED_ORIGINS.split(",") if u.strip()]
-else:
-    CSRF_TRUSTED_ORIGINS = _default_csrf
+_default_csrf = [
+    "https://whatsapp-text-chat-analysis-system-4q8m.onrender.com",
+    "https://django-whatsapp-text-chat-analysis-website.onrender.com",
+    "https://intern-2-deploy.onrender.com",
+]
+CSRF_TRUSTED_ORIGINS = _default_csrf
 
 GEMINI_API_KEY = "AIzaSyDeU5yD-jEkl5C83xXiEYNusEXX3WiUewM"
 
