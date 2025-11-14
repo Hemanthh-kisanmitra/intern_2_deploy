@@ -30,7 +30,7 @@ DEBUG = True
 # Default hosts if env not set
 ALLOWED_HOSTS = [
     "127.0.0.1",
-    "https://intern-2-deploy.onrender.com",
+    "intern-2-deploy.onrender.com",
 ]
 # ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS")
 # if ALLOWED_HOSTS:
@@ -42,7 +42,7 @@ ALLOWED_HOSTS = [
 _default_csrf = [
     "https://whatsapp-text-chat-analysis-system-4q8m.onrender.com",
     "https://django-whatsapp-text-chat-analysis-website.onrender.com",
-    "intern-2-deploy.onrender.com",
+    "https://intern-2-deploy.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = _default_csrf
 
