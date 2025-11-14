@@ -1,0 +1,87 @@
+{% extends 'chatapp/base.html' %}
+{% load static %}
+{% block title %}Notebook Demo • WhatsApp Chat Analyzer{% endblock %}
+
+{% block body %}
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar__header">
+      <span class="sidebar__label"><strong>Navigation</strong></span>
+    </div>
+    <ul class="sidebar__menu">
+      <li><a href="/home"><i class="fa-solid fa-house"></i><span class="sidebar__label">Home</span></a></li>
+      <li><a href="/dashboard"><i class="fa-solid fa-chart-line"></i><span class="sidebar__label">Dashboard</span></a></li>
+      <li><a href="/react_dashboard"><i class="fa-solid fa-chart-pie"></i><span class="sidebar__label">React Dashboard</span></a></li>
+      <li><a href="#" class="active"><i class="fa-solid fa-book"></i><span class="sidebar__label">Notebook Demo</span></a></li>
+    </ul>
+  </aside>
+
+  <section class="content">
+    <div class="card gradient-accent">
+      <h1>Notebook Demo</h1>
+      <p>This page demonstrates the notebook side panel feature. Click the notebook icon in the bottom right to open it.</p>
+    </div>
+
+    <div class="card">
+      <h2>How to Use the Notebook</h2>
+      <div class="instructions">
+        <ol>
+          <li>Click the <i class="fas fa-book"></i> button in the bottom right corner to open the notebook</li>
+          <li>Create multiple pages using the "+" button in the notebook sidebar</li>
+          <li>Rename pages by double-clicking on their titles</li>
+          <li>Pin important pages to keep them at the top</li>
+          <li>Notes are automatically saved to your browser's localStorage</li>
+          <li>Export pages as .txt or .md files using the export button</li>
+          <li>Duplicate pages to create copies</li>
+          <li>Delete pages you no longer need (you must keep at least one page)</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Features</h2>
+      <div class="features">
+        <div class="feature">
+          <h3><i class="fas fa-save"></i> Auto-save</h3>
+          <p>Your notes are automatically saved as you type, with a status indicator showing save progress.</p>
+        </div>
+        <div class="feature">
+          <h3><i class="fas fa-thumbtack"></i> Pin Pages</h3>
+          <p>Pin important pages to keep them at the top of your notebook for quick access.</p>
+        </div>
+        <div class="feature">
+          <h3><i class="fas fa-file-export"></i> Export</h3>
+          <p>Export any page as a .txt or .md file to save outside the browser.</p>
+        </div>
+        <div class="feature">
+          <h3><i class="fas fa-copy"></i> Duplicate</h3>
+          <p>Create copies of pages to experiment or organize your thoughts.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Privacy & Storage</h2>
+      <p>All notes are stored locally in your browser using localStorage. This means:</p>
+      <ul>
+        <li>Your notes are private and never sent to any server</li>
+        <li>Notes persist even after closing the browser (unless you clear site data)</li>
+        <li>No account or login is required</li>
+        <li>Data is only accessible from this same browser and device</li>
+      </ul>
+      <p><strong>Note:</strong> If you clear your browser data or switch devices, your notes will not transfer.</p>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize the notebook if it hasn't been already
+  if (typeof notebookManager === 'undefined') {
+    window.notebookManager = new NotebookManager();
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,19 @@
+﻿# --- Django essentials ---
+Django
+djangorestframework
+django-cors-headers
+whitenoise
+psycopg2-binary
+
+# --- Google Gemini API ---
+google-generativeai
+google-ai-generativelanguage
+google-auth
+google-auth-httplib2
+google-api-core
+google-api-python-client
+protobuf
+
+# --- Utilities ---
+python-dotenv
+requests

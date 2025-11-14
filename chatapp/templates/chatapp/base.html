@@ -1,0 +1,148 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="{{ csrf_token }}" />
+  <title>{% block title %}WhatsApp Chat Analyzer{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="{% static 'chatapp/styles.css' %}">
+<<<<<<< HEAD
+=======
+  <!-- Notebook CSS -->
+  <link rel="stylesheet" href="{% static 'chatapp/styles/notebook.css' %}">
+>>>>>>> 49340df8744b6570747d6bd4d9b58a8af76954d8
+  <style>
+    /* Layout for dashboard pages */
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 16px;
+      max-width: 1400px;
+      margin: 16px auto;
+      padding: 0 16px;
+    }
+    .sidebar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      height: calc(100vh - 120px);
+      position: sticky;
+      top: 70px;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar__header {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 10px 12px 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    .sidebar__toggle { cursor: pointer; }
+    .sidebar__menu { list-style: none; padding: 6px; margin: 0; display: grid; gap: 6px; }
+    .sidebar__menu a {
+      display: flex; align-items: center; gap: 10px;
+      color: var(--text); text-decoration: none;
+      padding: 10px 12px; border-radius: 10px; transition: background .2s ease;
+    }
+    .sidebar__menu a:hover, .sidebar__menu a.active { background: rgba(18, 165, 148, 0.12); }
+    .sidebar--collapsed { grid-template-columns: 56px 1fr; }
+    .sidebar--collapsed .sidebar { width: 56px; padding: 8px; }
+    .sidebar--collapsed .sidebar__label { display: none; }
+
+    .content {
+      display: grid; gap: 16px;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    .card h2 { margin: 0 0 12px 0; font-size: 18px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .gradient-accent {
+      background: linear-gradient(120deg, rgba(18,165,148,0.15), rgba(7,94,84,0.15));
+      border: 1px solid var(--border);
+    }
+
+    .site-header { position: sticky; top: 0; z-index: 50; }
+    .brand-logo { display: inline-flex; gap: 10px; align-items: center; font-weight: 700; }
+    .brand-logo i { color: var(--brand); }
+
+    .date-bar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .date-bar strong { font-weight: 600; }
+    @media (max-width: 768px) {
+      .date-bar {
+        font-size: 12px;
+        padding: 6px 12px;
+      }
+    }
+
+    .hidden { display: none !important; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="theme-light">
+  <header class="site-header">
+    <div class="site-header__inner">
+      <div class="brand">
+        <a href="/home" class="brand-logo"><i class="fa-brands fa-whatsapp"></i> WhatsApp Chat Analyzer</a>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <a class="btn-ghost" href="/">Legacy</a>
+        <button id="themeToggle" class="btn-ghost" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+      </div>
+    </div>
+  </header>
+
+  {% if chat_start_date and chat_end_date %}
+  <div class="date-bar">
+    <div class="date-bar__inner">
+      <span>Using chat data from <strong>{{ chat_start_date }}</strong> to <strong>{{ chat_end_date }}</strong></span>
+    </div>
+  </div>
+  {% endif %}
+
+  {% block body %}{% endblock %}
+
+<<<<<<< HEAD
+=======
+  <!-- Notebook Panel -->
+  <div id="notebook-panel">
+    <!-- Content will be populated by JavaScript -->
+  </div>
+  
+  <!-- Notebook Toggle Button -->
+  <button id="notebook-toggle" onclick="toggleNotebook()" title="Open Notebook">
+    <i class="fas fa-book"></i>
+  </button>
+
+>>>>>>> 49340df8744b6570747d6bd4d9b58a8af76954d8
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>© <span id="year"></span> WhatsApp Chat Analyzer</span>
+      <a class="back-to-top" href="#"><i class="fa-solid fa-arrow-up"></i> Back to top</a>
+    </div>
+  </footer>
+
+  <script src="{% static 'chatapp/scripts.js' %}"></script>
+<<<<<<< HEAD
+=======
+  <!-- Notebook JavaScript -->
+  <script src="{% static 'chatapp/scripts/notebook.js' %}"></script>
+>>>>>>> 49340df8744b6570747d6bd4d9b58a8af76954d8
+  {% block scripts %}{% endblock %}
+</body>
+</html>
