@@ -61,26 +61,49 @@ try:
 except Exception as e:
     logger.warning(f"Failed to initialize Gemini model on module load: {e}")
 
-
 def generate_user_messages(messages):
-    """Generate a summary of messages grouped by user"""
+    """
+    Groups all messages by user.
+    Returns: Dictionary { 'User A': [msg1, msg2], 'User B': [msg3] }
+    """
     if not messages:
         return {}
 
-    user_messages = {}
+    user_groups = {}
     for msg in messages:
-        sender = msg['sender']
-        if sender not in user_messages:
-            user_messages[sender] = []
-        user_messages[sender].append(msg)
+        sender = msg.get('sender', 'Unknown')
+        # Filter out system messages if needed
+        if 'media omitted' in msg.get('message', '').lower():
+            continue
 
-    return user_messages
+        if sender not in user_groups:
+            user_groups[sender] = []
+
+        # Clean up the message object
+        clean_msg = {
+            'timestamp': msg.get('timestamp', ''),
+            'message': msg.get('message', ''),
+            'sender': sender
+        }
+        user_groups[sender].append(clean_msg)
+
+    return user_groups
 
 def get_users_in_messages(messages):
-    """Get a list of all users in the messages"""
+    """
+    Extracts a sorted list of unique participants from the messages.
+    Returns: List ['Alice', 'Bob', 'Charlie']
+    """
+    if not messages:
+        return []
+
+    # Use a set to get unique senders, then convert to sorted list
     users = set()
     for msg in messages:
-        users.add(msg['sender'])
+        sender = msg.get('sender')
+        if sender and sender != 'Unknown':
+            users.add(sender)
+
     return sorted(list(users))
 
 def generate_user_messages_for_user(messages, user):
@@ -127,7 +150,7 @@ def generate_weekly_summary(messages):
 
         # *** CRITICAL: SLEEP BETWEEN REQUESTS ***
         # If this is not the last item, wait 4 seconds to respect rate limits
-        if i < len(sorted_weeks) - 1:   
+        if i < len(sorted_weeks) - 1:
             time.sleep(4)
 
     return results
@@ -245,42 +268,24 @@ def generate_daily_user_messages(messages):
 
     return daily_summaries
 
-def generate_user_wise_detailed_report(messages, user):
-    """Generate a detailed report for a specific user"""
-    if not messages:
+def generate_user_wise_detailed_report(messages, target_user):
+    """
+    Filters messages for a specific user.
+    Returns: List of message objects for that user.
+    """
+    if not messages or not target_user:
         return []
 
-    user_messages = [msg for msg in messages if msg['sender'] == user]
+    user_msgs = []
+    for msg in messages:
+        if msg.get('sender') == target_user:
+            user_msgs.append({
+                'timestamp': msg.get('timestamp', ''),
+                'message': msg.get('message', ''),
+                'sender': target_user
+            })
 
-    if not user_messages:
-        return f"No messages found for user {user}."
-
-    # Group messages by date
-    daily_messages = {}
-    for msg in user_messages:
-        try:
-            timestamp = parse_timestamp(msg['timestamp'])
-            if timestamp:
-                date_key = timestamp.strftime('%Y-%m-%d')
-                if date_key not in daily_messages:
-                    daily_messages[date_key] = []
-                daily_messages[date_key].append(msg)
-        except Exception as e:
-            logger.warning(f"Error parsing timestamp: {e}")
-            continue
-
-    # Generate report
-    report_parts = [f"**Detailed Report for {user}**"]
-    report_parts.append(f"Total messages: {len(user_messages)}")
-    report_parts.append("")
-
-    for date, messages in sorted(daily_messages.items()):
-        report_parts.append(f"**{date}** ({len(messages)} messages):")
-        for msg in messages:
-            report_parts.append(f"- {msg['message']}")
-        report_parts.append("")
-
-    return "\n".join(report_parts)
+    return user_msgs
 
 def generate_comprehensive_summary(messages, start_date_str=None, end_date_str=None):
     """Generate a comprehensive summary combining multiple analysis types"""

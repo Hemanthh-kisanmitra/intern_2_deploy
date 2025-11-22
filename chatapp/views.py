@@ -1121,6 +1121,23 @@ def summarize(request):
                 'brief_summary': generate_brief_summary(messages),
                 'weekly_summaries': generate_weekly_summary(messages)
             }
+        elif summary_type == 'user_messages':
+            # Corresponds to generateDailyUserMessages()
+            response_data["user_messages"] = generate_user_messages(messages)
+
+        elif summary_type == 'user_wise':
+            # Corresponds to showUserWiseOptions() - Populates dropdown
+            response_data["users"] = get_users_in_messages(messages)
+
+        elif summary_type == 'user_wise_detailed':
+            # Corresponds to generateUserWiseReport()
+            target_user = data.get('user')
+            if not target_user:
+                return JsonResponse({"error": "User not specified for detailed report"}, status=400)
+
+            # Returns list of messages for the specific user
+            response_data["user_messages"] = generate_user_wise_detailed_report(messages, target_user)
+            response_data["user"] = target_user
 
         return JsonResponse(response_data)
 
