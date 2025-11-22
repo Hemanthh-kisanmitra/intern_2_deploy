@@ -574,33 +574,94 @@ def generate_with_gemini(prompt):
     except Exception as e:
         return "API_ERROR"
 
+# def parse_whatsapp(file_path):
+#     messages = []
+#     current_message = None
+#     patterns = [
+#         # --- ADD THIS NEW PATTERN AT THE TOP ---
+#         r'(\d{1,2}/\d{1,2}/\d{2}, \d{1,2}:\d{2}) - (.*?): (.*)',
+
+#         r'(\d{1,2}/\d{1,2}/\d{2}, \d{1,2}:\d{2}\u202F[AP]M) - (.*?): (.*)',
+#         r'(\d{1,2}/\d{1,2}/\d{2}, \d{1,2}:\d{2} [AP]M) - (.*?): (.*)',
+#         r'\[(\d{1,2}/\d{1,2}/\d{2,4}, \d{1,2}:\d{2}(?::\d{2})?(?: [AP]M)?)\] (.*?): (.*)',
+#         r'(\d{4}-\d{1,2}-\d{1,2}, \d{1,2}:\d{2}) - (.*?): (.*)',
+#         r'(\d{1,2}/\d{1,2}/\d{4}, \d{1,2}:\d{2}) - (.*?): (.*)',
+#         r'(\d{1,2}/\d{1,2}/\d{2,4}, \d{1,2}:\d{2} [AP]M) - (.*?): (.*)'
+#     ]
+#     with open(file_path, 'r', encoding='utf-8') as file:
+#         for line in file:
+#             line = line.strip()
+#             if not line:
+#                 continue
+#             matched = False
+#             for pattern in patterns:
+#                 match = re.match(pattern, line, re.IGNORECASE)
+#                 if match:
+#                     if current_message:
+#                         messages.append(current_message)
+
+#                     timestamp, sender, message = match.groups()
+#                     current_message = {
+#                         'timestamp': timestamp,
+#                         'sender': sender,
+#                         'message': message
+#                     }
+#                     matched = True
+#                     break
+#             if not matched and current_message:
+#                 if current_message['message']:
+#                     current_message['message'] += '\n' + line
+#                 else:
+#                     current_message['message'] = line
+#     if current_message:
+#         messages.append(current_message)
+#     return messages
+
+
+import re
+
 def parse_whatsapp(file_path):
     messages = []
     current_message = None
-    patterns = [
-        # --- ADD THIS NEW PATTERN AT THE TOP ---
-        r'(\d{1,2}/\d{1,2}/\d{2}, \d{1,2}:\d{2}) - (.*?): (.*)',
 
-        r'(\d{1,2}/\d{1,2}/\d{2}, \d{1,2}:\d{2}\u202F[AP]M) - (.*?): (.*)',
-        r'(\d{1,2}/\d{1,2}/\d{2}, \d{1,2}:\d{2} [AP]M) - (.*?): (.*)',
-        r'\[(\d{1,2}/\d{1,2}/\d{2,4}, \d{1,2}:\d{2}(?::\d{2})?(?: [AP]M)?)\] (.*?): (.*)',
-        r'(\d{4}-\d{1,2}-\d{1,2}, \d{1,2}:\d{2}) - (.*?): (.*)',
-        r'(\d{1,2}/\d{1,2}/\d{4}, \d{1,2}:\d{2}) - (.*?): (.*)',
-        r'(\d{1,2}/\d{1,2}/\d{2,4}, \d{1,2}:\d{2} [AP]M) - (.*?): (.*)'
+    # --- REGEX COMPONENTS ---
+    # Flexible date: 11/11/25, 2025-11-11, 11/11/2025
+    date_pat = r'\d{1,4}[/-]\d{1,2}[/-]\d{2,4}'
+
+    # Flexible time: 10:00, 10:00:00, 10:00 AM, 10:00<nbsp>PM
+    # Matches narrow no-break space (\u202F) common in WhatsApp
+    time_pat = r'\d{1,2}:\d{2}(?::\d{2})?(?:[\s\u202F]?[APap][Mm])?'
+
+    timestamp_pat = f"{date_pat}, {time_pat}"
+
+    patterns = [
+        # 1. iOS Style: [Timestamp] Sender: Message
+        # ^[\u200E\u200F]* -> Ignores invisible Left-to-Right marks at start of line
+        r'^[\u200E\u200F]*\[(' + timestamp_pat + r')\]\s+(.*?):\s+(.*)',
+
+        # 2. Android Style: Timestamp - Sender: Message
+        r'^[\u200E\u200F]*(' + timestamp_pat + r')\s-\s(.*?):\s+(.*)'
     ]
+
     with open(file_path, 'r', encoding='utf-8') as file:
         for line in file:
             line = line.strip()
             if not line:
                 continue
+
             matched = False
             for pattern in patterns:
-                match = re.match(pattern, line, re.IGNORECASE)
+                match = re.match(pattern, line)
                 if match:
+                    # If we found a new timestamp, push the previous message to list
                     if current_message:
                         messages.append(current_message)
 
                     timestamp, sender, message = match.groups()
+
+                    # Clean the extracted timestamp string just in case (remove invisible chars)
+                    timestamp = timestamp.replace('\u200e', '').replace('\u200f', '').strip()
+
                     current_message = {
                         'timestamp': timestamp,
                         'sender': sender,
@@ -608,13 +669,19 @@ def parse_whatsapp(file_path):
                     }
                     matched = True
                     break
+
+            # If line didn't match a timestamp, append it to the previous message
+            # (This handles multi-line messages)
             if not matched and current_message:
                 if current_message['message']:
                     current_message['message'] += '\n' + line
                 else:
                     current_message['message'] = line
+
+    # Append the final message after loop ends
     if current_message:
         messages.append(current_message)
+
     return messages
 
 def get_group_name_from_file(filename):
@@ -1027,123 +1094,40 @@ def get_uploaded_files(request):
 def summarize(request):
     try:
         data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON data"}, status=400)
+        group_name = data.get('group_name')
+        summary_type = data.get('summary_type', 'total')
 
-    group_name = data.get('group_name')
-    summary_type = data.get('summary_type', 'total')
-    start_date_str = data.get('start_date')
-    end_date_str = data.get('end_date')
-    user = data.get('user')
-
-    print(f"Summarize request: group_name={group_name}, summary_type={summary_type}, start_date={start_date_str}, end_date={end_date_str}")
-
-    if not group_name:
-        return JsonResponse({"error": "Invalid group name"}, status=400)
-
-    try:
         chat_data = load_all_chats()
-        print(f"Loaded chat data for groups: {list(chat_data.keys())}")
-    except Exception as e:
-        print(f"Error loading chat data: {e}")
-        import traceback
-        traceback.format_exc()
-        return JsonResponse({"error": f"Failed to load chat data: {str(e)}"}, status=500)
+        if group_name not in chat_data:
+            return JsonResponse({"error": "Group not found"}, status=404)
 
-    # Check if the requested group exists
-    if group_name not in chat_data:
-        available_groups = list(chat_data.keys())
-        error_message = f"Group '{group_name}' not found. Available groups: {available_groups}"
-        print(error_message)
-        return JsonResponse({"error": error_message}, status=404)
-
-    try:
         messages = chat_data[group_name]['messages']
-        print(f"Found {len(messages)} messages for group {group_name}")
-        filtered_messages = filter_messages_by_date(messages, start_date_str, end_date_str)
-        print(f"Filtered to {len(filtered_messages)} messages")
-    except Exception as e:
-        print(f"Error filtering messages: {e}")
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({"error": f"Failed to filter messages: {str(e)}"}, status=500)
+        messages = filter_messages_by_date(messages, data.get('start_date'), data.get('end_date'))
 
-    if not filtered_messages:
-        return JsonResponse({"error": "No messages found in the selected date range"}, status=400)
+        if not messages:
+            return JsonResponse({"error": "No messages found"}, status=400)
 
-    try:
+        response_data = {"summary_type": summary_type}
+
         if summary_type == 'total':
-            summary = generate_total_summary(filtered_messages)
-            # Ensure we always return a string
-            if not isinstance(summary, str):
-                summary = str(summary)
-            return JsonResponse({"summary_type": "total", "summary": summary})
-
-        elif summary_type == 'comprehensive':
-            # Generate a comprehensive summary by combining multiple summary types
-            brief_summary = generate_brief_summary(filtered_messages)
-            weekly_summaries = generate_weekly_summary(filtered_messages, start_date_str, end_date_str)
-
-            # Combine into a comprehensive report
-            comprehensive_report = {
-                'brief_summary': brief_summary,
-                'weekly_summaries': weekly_summaries
-            }
-            return JsonResponse({"summary_type": "comprehensive", "report": comprehensive_report})
-
-        elif summary_type == 'user_messages':
-            user_messages = generate_user_messages(filtered_messages)
-            return JsonResponse({"summary_type": "user_messages", "user_messages": user_messages})
-
-        elif summary_type == 'user_wise':
-            users = get_users_in_messages(filtered_messages)
-            return JsonResponse({"summary_type": "user_wise", "users": users})
-
-        elif summary_type == 'user_messages_for_user':
-            if not user:
-                return JsonResponse({"error": "No user specified"}, status=400)
-            user_messages = generate_user_messages_for_user(filtered_messages, user)
-            return JsonResponse({"summary_type": "user_messages_for_user", "user": user, "user_messages": user_messages})
-
-        elif summary_type == 'weekly_summary':
-            weekly_summaries = generate_weekly_summary(filtered_messages, start_date_str, end_date_str)
-            # Ensure each summary is a string
-            for week in weekly_summaries:
-                if not isinstance(week['summary'], str):
-                    week['summary'] = str(week['summary'])
-            return JsonResponse({"summary_type": "weekly_summary", "weekly_summaries": weekly_summaries})
-
+            response_data["summary"] = generate_total_summary(messages)
         elif summary_type == 'brief':
-            print(f"Generating brief summary for {len(filtered_messages)} messages")
-            summary = generate_brief_summary(filtered_messages)
-            print(f"Generated brief summary: {summary[:100]}...")
-            # Ensure we always return a string
-            if not isinstance(summary, str):
-                summary = str(summary)
-            return JsonResponse({"summary_type": "brief", "summary": summary})
+            response_data["summary"] = generate_brief_summary(messages)
+        elif summary_type == 'weekly_summary':
+            # This is the heavy function that needs the delays
+            response_data["weekly_summaries"] = generate_weekly_summary(messages)
+        elif summary_type == 'comprehensive':
+            response_data["report"] = {
+                'brief_summary': generate_brief_summary(messages),
+                'weekly_summaries': generate_weekly_summary(messages)
+            }
 
-        elif summary_type == 'daily_user_messages':
-            daily_summaries = generate_daily_user_messages(filtered_messages)
-            # Ensure each summary is a string
-            for day in daily_summaries:
-                if not isinstance(day['summary'], str):
-                    day['summary'] = str(day['summary'])
-            return JsonResponse({"summary_type": "daily_user_messages", "daily_summaries": daily_summaries})
+        return JsonResponse(response_data)
 
-        elif summary_type == 'user_wise_detailed':
-            if not user:
-                return JsonResponse({"error": "No user specified"}, status=400)
-            user_messages = generate_user_wise_detailed_report(filtered_messages, user)
-            return JsonResponse({"summary_type": "user_wise_detailed", "user": user, "user_messages": user_messages})
-
-        else:
-            return JsonResponse({"error": "Invalid summary type"}, status=400)
     except Exception as e:
-        # Log the error for debugging
         import traceback
-        error_details = traceback.format_exc()
-        print(f"Summary generation error: {error_details}")
-        return JsonResponse({"error": f"Failed to generate {summary_type} summary. Please try again."}, status=500)
+        print(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -1319,322 +1303,279 @@ def get_example_questions(request):
         "total_questions": sum(len(questions) for questions in example_questions.values())
     })
 
+import json
+import logging
+import traceback
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+# Ensure these are imported from your project structure
+# from .utils import load_all_chats, generate_with_gemini
+# from .processors import QuestionProcessor
+logger = logging.getLogger(__name__)
+
+
+def get_filtered_context(group_name, start_date_str, end_date_str):
+    """
+    1. Loads chat files for the specific group.
+    2. Filters messages between start_date and end_date.
+    3. Returns a single string of text (the context).
+    """
+
+    # 1. Fetch only relevant files from Django DB
+    # We filter by group_name to avoid processing unnecessary files
+    chat_files = ChatFile.objects.filter(group_name=group_name)
+
+    if not chat_files.exists():
+        return "Error: Group not found."
+
+    all_messages = []
+
+    # 2. Parse the files
+    for chat_file in chat_files:
+        try:
+            # Reuse your existing parse function
+            msgs = parse_whatsapp(chat_file.file.path)
+            all_messages.extend(msgs)
+        except Exception as e:
+            print(f"Error reading {chat_file.original_filename}: {e}")
+
+    # 3. Process Dates for filtering
+    # Assuming input strings are "YYYY-MM-DD", e.g., "2025-10-28"
+    try:
+        filter_start = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+        # Set end date to end of the day (23:59:59) to capture all chats on that day
+        filter_end = datetime.strptime(end_date_str, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59
+        )
+    except ValueError:
+        return "Error: Dates must be in YYYY-MM-DD format."
+
+    # 4. Filter and Build Context String
+    context_lines = []
+
+    # Sort messages first to ensure chronological order in the prompt
+    # We use a lambda that handles None results from parse_timestamp safely
+    all_messages.sort(key=lambda x: parse_timestamp(x['timestamp']) or datetime.min)
+
+    for msg in all_messages:
+        msg_dt = parse_timestamp(msg['timestamp'])
+
+        if msg_dt:
+            if filter_start <= msg_dt <= filter_end:
+                # Format: [Timestamp] Sender: Message
+                line = f"[{msg['timestamp']}] {msg['sender']}: {msg['message']}"
+                context_lines.append(line)
+
+    if not context_lines:
+        return ""
+
+    # Join with newlines
+    return "\n".join(context_lines)
+
+
+def ask_question_on_chat(group_name, start_date, end_date, question):
+    """
+    Constructs the final prompt for the LLM.
+    """
+
+    # Step 1: Get the chat history for the date range
+    context_text = get_filtered_context(group_name, start_date, end_date)
+
+    if not context_text:
+        return "No messages found in this date range to analyze."
+
+    # Step 2: Construct the Prompt
+    # This structure works well for Gemini/GPT models
+    prompt = f"""
+You are an intelligent assistant analyzing a WhatsApp group chat.
+Below is a segment of the conversation from {start_date} to {end_date}.
+
+--- START OF CHAT CONTEXT ---
+{context_text}
+--- END OF CHAT CONTEXT ---
+
+Based strictly on the context above, please answer the following question:
+Question: {question}
+    """
+
+    return prompt
+
+from .summary_generator import generate_with_gemini
 @csrf_exempt
 @require_http_methods(["POST"])
 def ask_question(request):
     try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON data"}, status=400)
+        # 1. Validate and Parse Input
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data"}, status=400)
 
-    group_name = data.get('group_name')
-    user_question = data.get('question')
-    start_date_str = data.get('start_date')
-    end_date_str = data.get('end_date')
+        group_name = data.get('group_name')
+        user_question = data.get('question')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        print(f"Processing question for group: {group_name}")
+        final_prompt = ask_question_on_chat(group_name, start_date, end_date, user_question)
+        result = generate_with_gemini(final_prompt)
+        return JsonResponse({
+            "answer": result,
+            "data": result
+        })
 
-    if not group_name:
-        return JsonResponse({"error": "Invalid group name"}, status=400)
-    if not user_question:
-        return JsonResponse({"error": "No question provided"}, status=400)
 
-    try:
-        chat_data = load_all_chats()
-    except Exception as e:
-        return JsonResponse({"error": f"Failed to load chat data: {str(e)}"}, status=500)
+        import pdb
+        pdb.set_trace()
 
-    if group_name not in chat_data:
-        return JsonResponse({"error": "Group not found"}, status=404)
+        if not group_name or not user_question:
+            return JsonResponse({"error": "Missing group_name or question"}, status=400)
 
-    try:
-        # Initialize the intelligent question processor
+        # 2. Load Data
+        try:
+            chat_data = load_all_chats()
+        except Exception as e:
+            logger.error(f"Data load error: {e}")
+            return JsonResponse({"error": "Failed to load chat database"}, status=500)
+
+        if group_name not in chat_data:
+            return JsonResponse({"error": f"Group '{group_name}' not found"}, status=404)
+
+        # 3. Process Question using Logic
         messages = chat_data[group_name]['messages']
         processor = QuestionProcessor(messages, group_name)
 
-        # Process the question using the intelligent processor
-        result = processor.process_question(user_question, start_date_str, end_date_str)
+        # Pass date range to the processor
+        result = processor.process_question(user_question, start_date=start_date, end_date=end_date)
 
-        # Check if there's an error in the result
         if "error" in result:
             return JsonResponse({"error": result["error"]}, status=400)
 
-        # For general queries, use AI to generate a natural language response
-        if result.get("type") == "general":
-            context = result.get("context", "")
-            question = result.get("question", user_question)
+        # 4. Generate Answer based on Result Type
+        result_type = result.get("type", "unknown")
+        answer = ""
 
-            # Create an enhanced prompt for better AI responses
-            prompt = f"""You are an AI assistant analyzing WhatsApp chat data. Answer the user's question based on the provided context.
+        # --- CASE A: General AI Query ---
+        if result_type == "general":
+            answer = generate_ai_answer(user_question, result.get("context", ""))
 
-Context:
-{context}
-
-Question: {question}
-
-Instructions:
-- Be specific and accurate
-- Use the actual data from the chat
-- If asking about specific users, mention their names/numbers
-- If asking about time periods, be precise
-- Provide concrete examples when relevant
-- Keep responses concise but informative
-
-Answer:"""
-
-            try:
-                ai_response = generate_with_gemini(prompt)
-                return JsonResponse({
-                    "answer": ai_response,
-                    "data": result  # Include structured data for frontend
-                })
-            except Exception as e:
-                # Fallback to structured response if AI fails
-                return JsonResponse({
-                    "answer": f"Based on the chat data: {result.get('context', 'No specific information found.')}",
-                    "data": result
-                })
-
-        # For structured queries, format the response appropriately
-        elif result.get("type") == "date_based":
-            date = result.get("date", "Unknown date")
-            total_messages = result.get("total_messages", 0)
-            messages_list = result.get("messages", [])
-
-            answer = f"**Messages on {date}:**\n\n"
-            answer += f"Total messages: {total_messages}\n\n"
-
-            # Group messages by user
-            user_groups = {}
-            for msg in messages_list:
-                sender = msg.get('sender', 'Unknown')
-                if sender not in user_groups:
-                    user_groups[sender] = []
-                user_groups[sender].append(msg)
-
-            # Display messages grouped by user
-            for sender, msgs in user_groups.items():
-                answer += f"**{sender}:**\n"
-                for i, msg in enumerate(msgs, 1):
-                    timestamp = msg.get('timestamp', 'Unknown time')
-                    message = msg.get('message', '')
-                    # Extract just the time part from timestamp
-                    time_part = timestamp.split()[-1] if ' ' in timestamp else timestamp
-                    answer += f"  {time_part}: {message}\n"
-                answer += "\n"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
-
-        elif result.get("type") == "user_messages":
-            user = result.get("user", "Unknown")
-            total_messages = result.get("total_messages", 0)
-            messages_list = result.get("messages", [])
-
-            answer = f"**Messages from {user}:**\n\n"
-            answer += f"Total messages: {total_messages}\n\n"
-
-            # Group messages by user
-            user_groups = {}
-            for msg in messages_list:
-                sender = msg.get('sender', 'Unknown')
-                if sender not in user_groups:
-                    user_groups[sender] = []
-                user_groups[sender].append(msg)
-
-            # Display messages grouped by user
-            for sender, msgs in user_groups.items():
-                answer += f"**{sender}:**\n"
-                for i, msg in enumerate(msgs, 1):
-                    timestamp = msg.get('timestamp', 'Unknown time')
-                    message = msg.get('message', '')
-                    # Extract just the time part from timestamp
-                    time_part = timestamp.split()[-1] if ' ' in timestamp else timestamp
-                    answer += f"  {time_part}: {message}\n"
-                answer += "\n"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
-
-        elif result.get("type") == "topics":
-            topics_data = result.get("topics", {})
-            topics = topics_data.get("topics", [])
-            if topics:
-                answer = "**Topics:**\n"
-                for i, topic in enumerate(topics[:10], 1):
-                    answer += f"{i}. {topic}\n"
-                answer += "\n"
-
-            key_messages = topics_data.get("key_messages", [])
-            if key_messages:
-                answer += "**Key Discussion Points:**\n"
-                for i, msg in enumerate(key_messages[:10], 1):
-                    sender = msg.get("sender", "Unknown")
-                    timestamp = msg.get("timestamp", "Unknown time")
-                    message = msg.get("message", "")
-                    # Truncate long messages
-                    if len(message) > 100:
-                        message = message[:100] + "..."
-                    answer += f"{i}. **{sender}** [{timestamp}]: {message}\n"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
-
-            answer = f"Found {total_messages} messages from {user}:\n\n"
-            for i, msg in enumerate(messages_list[-20:], 1):  # Show last 20 messages
-                timestamp = msg.get('timestamp', 'Unknown time')
-                message = msg.get('message', '')
-                answer += f"{i}. [{timestamp}] {message}\n"
-
-            if len(messages_list) > 20:
-                answer += f"\n... and {len(messages_list) - 20} more messages"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
-
-        elif result.get("type") == "least_active_users":
-            users = result.get("users", [])
-            answer = "**Least Active Users:**\n\n"
-            for i, user_data in enumerate(users, 1):
-                user = user_data.get("user", "Unknown")
-                count = user_data.get("message_count", 0)
-                percentage = user_data.get("percentage", 0)
-                answer += f"{i}. **{user}**: {count} messages ({percentage}%)\n"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
-
-        elif result.get("type") == "most_active_users":
-            users = result.get("users", [])
-            answer = "**Most Active Users:**\n\n"
-            for i, user_data in enumerate(users, 1):
-                user = user_data.get("user", "Unknown")
-                count = user_data.get("message_count", 0)
-                percentage = user_data.get("percentage", 0)
-                answer += f"{i}. **{user}**: {count} messages ({percentage}%)\n"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
-
-        elif result.get("type") == "time_based":
-            total_messages = result.get("total_messages", 0)
-            time_range = result.get("time_range", {})
-            messages_list = result.get("messages", [])
-
-            if time_range.get("type") == "time_range":
-                start_time = time_range.get("start_time", "")
-                end_time = time_range.get("end_time", "")
-                answer = f"Found {total_messages} messages between {start_time} and {end_time}:\n\n"
-            else:
-                answer = f"Found {total_messages} messages in the specified time period:\n\n"
-
-            for i, msg in enumerate(messages_list, 1):
-                sender = msg.get('sender', 'Unknown')
-                timestamp = msg.get('timestamp', 'Unknown time')
-                message = msg.get('message', '')
-                answer += f"{i}. [{timestamp}] {sender}: {message}\n"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
-
-        elif result.get("type") == "message_count":
-            total_messages = result.get("total_messages", 0)
-            total_users = result.get("total_users", 0)
-            avg_messages = result.get("average_messages_per_user", 0)
-
-            answer = f"**Message Statistics:**\n\n"
-            answer += f"Total Messages: {total_messages}\n"
-            answer += f"Total Users: {total_users}\n"
-            answer += f"Average Messages per User: {avg_messages}\n\n"
-
-            user_breakdown = result.get("user_breakdown", {})
-            if user_breakdown:
-                answer += "**Messages per User:**\n"
-                for user, count in sorted(user_breakdown.items(), key=lambda x: x[1], reverse=True):
-                    answer += f"- {user}: {count} messages\n"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
-
-        elif result.get("type") == "topics":
-            topics_data = result.get("topics", {})
-            total_messages = result.get("total_messages_analyzed", 0)
-
-            answer = f"**Main Topics Discussed** (Analyzed {total_messages} messages)\n\n"
-
-            main_topics = topics_data.get("main_topics", [])
-            if main_topics:
-                answer += "**Top Topics:**\n"
-                for i, topic_info in enumerate(main_topics[:10], 1):
-                    topic = topic_info.get("topic", "Unknown")
-                    frequency = topic_info.get("frequency", 0)
-                    answer += f"{i}. **{topic}** (mentioned {frequency} times)\n"
-                answer += "\n"
-
-            key_messages = topics_data.get("key_messages", [])
-            if key_messages:
-                answer += "**Key Discussion Points:**\n"
-                for i, msg in enumerate(key_messages[:10], 1):
-                    sender = msg.get("sender", "Unknown")
-                    timestamp = msg.get("timestamp", "Unknown time")
-                    message = msg.get("message", "")
-                    # Truncate long messages
-                    if len(message) > 100:
-                        message = message[:100] + "..."
-                    answer += f"{i}. **{sender}** [{timestamp}]: {message}\n"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
-
-        # For other types, return the structured data with a basic response
+        # --- CASE B: Structured Data Formatting ---
         else:
-            # Create a more detailed response for analytics data
-            if result.get("type") == "general_analytics":
-                metrics = result.get("metrics", {})
-                answer = "**General Analytics:**\n\n"
+            answer = format_structured_response(result_type, result)
 
-                # Add business metrics if available
-                if "total_messages" in metrics:
-                    answer += f"Total Messages: {metrics.get('total_messages', 0)}\n"
-                if "total_users" in metrics:
-                    answer += f"Total Users: {metrics.get('total_users', 0)}\n"
-                if "messages_per_user" in metrics:
-                    avg_msgs = round(metrics.get('total_messages', 0) / metrics.get('total_users', 1), 1) if metrics.get('total_users', 0) > 0 else 0
-                    answer += f"Average Messages per User: {avg_msgs}\n"
-
-                answer += "\nFor more specific information, try asking questions like:\n"
-                answer += "- 'Who are the most active users?'\n"
-                answer += "- 'Show me messages from [user name]'\n"
-                answer += "- 'What happened on [date]?'\n"
-                answer += "- 'List the least active users'\n"
-            else:
-                answer = f"Query processed successfully. Type: {result.get('type', 'unknown')}"
-
-            return JsonResponse({
-                "answer": answer,
-                "data": result
-            })
+        return JsonResponse({
+            "answer": answer,
+            "data": result
+        })
 
     except Exception as e:
-        import traceback
         traceback.print_exc()
-        return JsonResponse({"error": f"Error processing question: {str(e)}"}, status=500)
+        return JsonResponse({"error": f"Internal processing error: {str(e)}"}, status=500)
+
+
+# --- Helper Functions to keep View Clean ---
+
+def generate_ai_answer(question, context):
+    """Handles AI generation for general context questions"""
+    prompt = f"""You are an expert WhatsApp chat analyst. Answer the user's question based strictly on the provided context logs.
+
+    Context Logs:
+    {context}
+
+    User Question: {question}
+
+    Instructions:
+    - Be precise and mention specific user names/numbers if available.
+    - If the context is empty, say "I couldn't find specific information about that in the chat."
+    - Keep it concise.
+
+    Answer:"""
+
+    try:
+        return generate_with_gemini(prompt)
+    except Exception as e:
+        logger.error(f"AI Generation failed: {e}")
+        return f"Based on the chat data: {context[:500]}..." # Fallback
+
+
+def format_structured_response(result_type, result):
+    """Formats structured data (lists, counts) into a readable string"""
+    answer = ""
+
+    # 1. Date Based / User Messages / Time Range
+    if result_type in ["date_based", "user_messages", "time_based"]:
+        title = f"Messages for {result.get('date', 'selected period')}"
+        if result_type == "user_messages":
+            title = f"Messages from {result.get('user', 'User')}"
+
+        answer = f"**{title}**\nTotal: {result.get('total_messages', 0)}\n\n"
+
+        # Group by sender for cleaner reading
+        messages_list = result.get('messages', [])
+        current_sender = None
+
+        for msg in messages_list:
+            sender = msg.get('sender', 'Unknown')
+            timestamp = msg.get('timestamp', '')
+            content = msg.get('message', '')
+
+            # Simple header if sender changes
+            if sender != current_sender:
+                answer += f"\n**{sender}:**\n"
+                current_sender = sender
+
+            # Format: [Time]: Message
+            time_str = timestamp.split()[-1] if ' ' in timestamp else timestamp
+            answer += f"  [{time_str}] {content}\n"
+
+    # 2. Topics
+    elif result_type == "topics":
+        topics_data = result.get("topics", {})
+        main_topics = topics_data.get("main_topics", []) or topics_data.get("topics", [])
+
+        answer = "**Main Topics Discussed:**\n"
+        # Handle both list of strings or list of dicts (frequency)
+        for i, item in enumerate(main_topics[:10], 1):
+            if isinstance(item, dict):
+                answer += f"{i}. {item.get('topic')} ({item.get('frequency')} mentions)\n"
+            else:
+                answer += f"{i}. {item}\n"
+
+        key_msgs = topics_data.get("key_messages", [])
+        if key_msgs:
+            answer += "\n**Key Context:**\n"
+            for msg in key_msgs[:5]:
+                answer += f"- **{msg.get('sender')}**: {msg.get('message')[:100]}...\n"
+
+    # 3. User Statistics (Most/Least Active)
+    elif result_type in ["most_active_users", "least_active_users"]:
+        category = "Most" if result_type == "most_active_users" else "Least"
+        answer = f"**{category} Active Users:**\n\n"
+        for i, u in enumerate(result.get("users", []), 1):
+            answer += f"{i}. **{u['user']}**: {u['message_count']} messages ({u['percentage']}%)\n"
+
+    # 4. General Counts
+    elif result_type == "message_count":
+        answer = "**Message Statistics:**\n\n"
+        answer += f"• Total Messages: {result.get('total_messages', 0)}\n"
+        answer += f"• Total Users: {result.get('total_users', 0)}\n"
+        if 'user_breakdown' in result:
+            answer += "\n**Breakdown:**\n"
+            # Sort top 5 for brevity
+            sorted_users = sorted(result['user_breakdown'].items(), key=lambda x: x[1], reverse=True)[:10]
+            for user, count in sorted_users:
+                answer += f"- {user}: {count}\n"
+
+    # 5. Fallback
+    else:
+        answer = "I processed your request, but the result type is generic.\n"
+        if "metrics" in result:
+             m = result["metrics"]
+             answer += f"Analyzed {m.get('total_messages', 0)} messages from {m.get('total_users', 0)} users."
+
+    return answer
 
 @csrf_exempt
 @require_http_methods(["POST"])
